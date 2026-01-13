@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>BTC 止盈 & 杠杆自动计算工具</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #0d1117;
+        color: #e6edf3;
+        padding: 20px;
+    }
+    h2 {
+        text-align: center;
+        color: #58a6ff;
+    }
+    .container {
+        max-width: 520px;
+        margin: auto;
+        background: #161b22;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    label {
+        display: block;
+        margin-top: 15px;
+        font-size: 15px;
+    }
+    input, select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        margin-top: 5px;
+        font-size: 15px;
+    }
+    button {
+        width: 100%;
+        margin-top: 20px;
+        background: #238636;
+        color: white;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    button:hover {
+        background: #2ea043;
+    }
+    .result {
+        margin-top: 20px;
+        padding: 15px;
+        background: #21262d;
+        border-radius: 10px;
+        font-size: 15px;
+        line-height: 1.6;
+    }
+    .highlight {
+        color: #58a6ff;
+        font-weight: bold;
+    }
+</style>
+</head>
+<body>
+
+<h2>BTC 止盈 & 杠杆自动计算器（含 OKX 手续费）</h2>
+
+<div class="container">
+    <label>投入资金 (USDT)</label>
+    <input type="number" id="funds" placeholder="例如：500">
+
+    <label>开仓价</label>
+    <input type="number" id="entry" placeholder="例如：98700">
+
+    <label>止损价</label>
+    <input type="number" id="stop" placeholder="例如：95500">
+
+    <label>方向</label>
+    <select id="direction">
+        <option value="long">做多</option>
+        <option value="short">做空</option>
+    </select>
+
+    <button onclick="calculate()">开始计算</button>
+
+    <div id="output" class="result" style="display:none;"></div>
+</div>
+
+<script>
+function calculate() {
+    const funds = parseFloat(document.getElementById("funds").value);
+    const entry = parseFloat(document.getElementById("entry").value);
+    const stop = parseFloat(document.getElementById("stop").value);
+    const direction = document.getElementById("direction").value;
+
+    if (!funds || !entry || !stop) {
+        alert("请填写所有输入项！");
+        return;
+    }
+
+    // ===== 参数设定 =====
+    const maxLossPercent = 0.05;           // 最大亏损 5%
+    const feeRate = 0.001;                 // OKX BTC 合约 双边手续费 0.1%
+
+    let R, tp;
+
+    if (direction === "long") {
+        R = entry - stop;
+        tp = entry + 1.5 * R;
+    } else {
+        R = stop - entry;
+        tp = entry - 1.5 * R;
+    }
+
+    const priceRiskPercent = Math.abs((entry - stop) / entry);
+
+    // 可承受最大亏损金额
+    const maxLoss = funds * maxLossPercent;
+
+    /*
+        总风险 = 价格亏损 + 手续费
+        = 仓位规模 × (价格波动比例 + 手续费率)
+        = funds × leverage × (priceRiskPercent + feeRate)
+    */
+    let leverage = maxLoss / (funds * (priceRiskPercent + feeRate));
+    leverage = Math.min(100, leverage);
+    leverage = leverage.toFixed(2);
+
+    const positionSize = funds * leverage;
+    const feeCost = positionSize * feeRate;
+
+    document.getElementById("output").style.display = "block";
+    document.getElementById("output").innerHTML = `
+        📌 <span class="highlight">计算结果</span><br><br>
+
+        🔸 1.5R 建议止盈价：<span class="highlight">${tp.toFixed(2)}</span><br>
+        🔸 推荐杠杆倍数：<span class="highlight">${leverage}x</span><br><br>
+
+        📉 最大允许亏损（本金 5%）：<span class="highlight">${maxLoss.toFixed(2)} USDT</span><br>
+        💸 预估 OKX 手续费（开+平）：<span class="highlight">${feeCost.toFixed(2)} USDT</span><br>
+        📊 价格止损波动比例：<span class="highlight">${(priceRiskPercent * 100).toFixed(3)}%</span><br>
+    `;
+}
+</script>
+
+</body>
+</html>
